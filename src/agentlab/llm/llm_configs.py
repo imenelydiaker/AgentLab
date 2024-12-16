@@ -58,6 +58,29 @@ CHAT_MODEL_ARGS_DICT = {
         max_input_tokens=7500,
         max_new_tokens=500,
     ),
+    "azure/gpt-35-turbo-1106/gpt-35-turbo-1106": AzureModelArgs(
+        model_name="gpt-35-turbo-1106",
+        deployment_name="gpt-35-turbo-1106",
+        max_total_tokens=8_192,
+        max_input_tokens=7500,
+        max_new_tokens=500,
+    ),
+    "azure/gpt-4-vision-preview/gpt-4-vision-preview": AzureModelArgs(
+        model_name="gpt-4-vision-preview",
+        deployment_name="gpt-4-vision-preview",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,  # make sure we don't bust budget
+        max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
+        vision_support=True,
+    ),
+    "azure/gpt-4o-2024-05-13/gpt-4o-2024-05-13": AzureModelArgs(
+        model_name="gpt-4o-2024-05-13",
+        deployment_name="gpt-4o-2024-05-13",
+        max_total_tokens=128_000,
+        max_input_tokens=40_000,  # make sure we don't bust budget
+        max_new_tokens=4000,  # I think this model has very small default value if we don't set max_new_tokens
+        vision_support=True,
+    ),
     "HuggingFaceH4/starchat-beta": HuggingFaceModelArgs(
         model_name="HuggingFaceH4/starchat-beta",
         max_total_tokens=8192,

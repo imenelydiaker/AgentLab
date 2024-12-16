@@ -1,5 +1,5 @@
 import re
-from typing import Union, Dict, List
+from typing import Union, List
 
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 
@@ -10,11 +10,19 @@ from .utils.stack import Stack, Element
 
 class StepAgent(BaseAgent):
     """Adapted from https://github.com/asappresearch/webagents-step/blob/main/src/webagents_step/agents/step_agent.py"""
+    
+    WEBARENA_AGENTS = {
+        8023: "github_agent",
+        9999: "reddit_agent",
+        7770: "shopping_agent",
+        7780: "shopping_admin_agent",
+        3000: "maps_agent",
+    }
+
     def __init__(self, 
+                 benchmark: str,
                  model: Union[ChatOpenAI, AzureChatOpenAI],
                  max_actions: int = 10, verbose: int = 0, logging: bool = False,
-                 root_action: str = None,
-                 action_to_prompt_dict: Dict = None,
                  low_level_action_list: List = None,
                  prompt_mode: str = "chat",
                  previous_actions: List = None):
@@ -22,12 +30,14 @@ class StepAgent(BaseAgent):
             max_actions=max_actions,
             previous_actions=previous_actions,
         )
-        self.root_action = root_action
-        self.action_to_prompt_dict = {} if action_to_prompt_dict is None else action_to_prompt_dict
+        self.benchmark = benchmark
+        self.root_action = None
+        self.action_to_prompt_dict = {} 
         self.low_level_action_list = [] if low_level_action_list is None else low_level_action_list
         self.model = model
         self.prompt_mode = prompt_mode
         self.stack = Stack()
+        self.prev_url:  str = None
 
     def is_done(self, action: str) -> bool:
         if "stop" in action:
@@ -76,7 +86,29 @@ class StepAgent(BaseAgent):
         )
         return Element(agent=agent, objective=objective)
 
-    def predict_action(self, objective: str, observation: str, url: str = None) -> tuple[str, dict]:       
+    def init_actions(self, benchmark: str, url: str):
+        match benchmark:
+            case "miniwob":
+                from .prompts.miniwob import step_fewshot_template
+                self.root_action = "miniwob_agent"
+            case "webarena":
+                match_url = re.search(r'http:\/{2}\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}.(\d*)\/.*', url)
+                port = int(match_url.group(1)) if match_url else None
+
+                from .prompts.webarena import step_fewshot_template
+                self.root_action = self.WEBARENA_AGENTS[port] if port in self.WEBARENA_AGENTS.keys() else None
+
+                print(self.root_action)
+
+        self.action_to_prompt_dict = {
+        k: v for k, v in step_fewshot_template.__dict__.items() if isinstance(v, dict)}
+
+    def predict_action(self, objective: str, observation: str, url: str = None) -> tuple[str, dict]: 
+        if (self.root_action is None) or (url != self.prev_url):
+            # Dynamically select agent policy according to the current website (useful or webarena).
+            self.init_actions(self.benchmark, url)
+            self.prev_url = url
+
         if self.stack.is_empty():
             new_element = self.init_root_agent(objective=objective)
             self.stack.push(new_element)

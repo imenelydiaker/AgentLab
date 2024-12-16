@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import datetime
 import re
 from typing import Literal, Dict, List
 
@@ -18,30 +19,24 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
     max_actions: int = 10
     verbose: int = 0
     logging: bool = False
-    root_action: str = None
-    action_to_prompt_dict: Dict = None
     low_level_action_list: List = None
     model: BaseModelArgs = None
     prompt_mode: str = "chat"
     previous_actions: List = None
     use_dom: bool = False  # or AXTree
     benchmark: str = "miniwob"
-    website_name: str = None  # To use with WorkArena only
 
     def make_agent(self):
         return BrowserGymStepAgent(
             max_actions=self.max_actions,
             verbose=self.verbose,
             logging=self.logging,
-            root_action=self.root_action,
-            action_to_prompt_dict=self.action_to_prompt_dict,
             low_level_action_list=self.low_level_action_list,
             model=self.model,
             prompt_mode=self.prompt_mode,
             previous_actions=self.previous_actions,
             use_dom=self.use_dom,
-            benchmark=self.benchmark,
-            website_name=self.website_name
+            benchmark=self.benchmark
         )
     
     def prepare(self):
@@ -53,46 +48,25 @@ class BrowserGymStepAgentArgs(AbstractAgentArgs):
 
 class BrowserGymStepAgent(Agent):
     BENCHMARKS = Literal["miniwob", "webarena"]
-    WEBARENA_AGENTS = {
-        "gitlab": "github_agent",
-        "reddit": "reddit_agent",
-        "shopping": "shopping_agent",
-        "shopping_admin": "shopping_admin_agent",
-        "maps": "maps_agent",
-    }
 
     def __init__(self,
                  model: BaseModelArgs,
                  max_actions: int = 10, verbose: int = 0, logging: bool = False,
-                 root_action: str = None,
-                 action_to_prompt_dict: Dict = None,
                  low_level_action_list: List = None,
                  prompt_mode: str = "chat",
                  previous_actions: List = None,
                  use_dom: bool = True,
-                 benchmark: BENCHMARKS = "miniwob",
-                 website_name: str = None
+                 benchmark: BENCHMARKS = "miniwob"
                  ):
-        match benchmark:
-            case "miniwob":
-                from .prompts.miniwob import step_fewshot_template
-                root_action = "miniwob_agent"
-            case "webarena":
-                from .prompts.webarena import step_fewshot_template
-                root_action = self.WEBARENA_AGENTS[website_name] if website_name in self.WEBARENA_AGENTS else None
-
-        action_to_prompt_dict = {
-            k: v for k, v in step_fewshot_template.__dict__.items() if isinstance(v, dict)}
 
         self.model = model.make_model()
         self.use_dom = use_dom
         self.benchmark = benchmark
         self.logging = logging
         self.agent = StepAgent(
+            benchmark=self.benchmark,
             model=self.model,
             max_actions=max_actions, verbose=verbose, logging=logging,
-            root_action=root_action,
-            action_to_prompt_dict=action_to_prompt_dict,
             low_level_action_list=low_level_action_list,
             prompt_mode=prompt_mode,
             previous_actions=previous_actions
@@ -130,7 +104,7 @@ class BrowserGymStepAgent(Agent):
             # print(f"Action: {action}\nReason: {reason}")
         return self.parse_action(action), {}
 
-    def preprocess_dom(self, dom: str) -> str:
+    def preprocess_dom(self, dom: str, process_dates: bool = False) -> str:
         """Preprocess the DOM before passing it to the model. Keep only 'id' and 'val' 
         attributes to match original SteP prompt for MiniWoB.
         """
@@ -160,7 +134,33 @@ class BrowserGymStepAgent(Agent):
             elif "bid" in tag.attrs:
                 tag["id"] = tag["bid"]
                 del tag["bid"]
+            
+        # if process_dates:
+        #     parsed_dom = self.parse_dates_table(parsed_dom)
+
         return str(parsed_dom)
+    
+    # def parse_dates_table(dom: str):
+    #     parsed_dom = bs4.BeautifulSoup(dom, 'html.parser')
+    #     all_elements = parsed_dom.find_all()
+        
+    #     for tag in all_elements:
+    #         if any(tag["val"] == "ui-datepicker-div" not in all_elements):
+    #             return dom
+
+    #     pattern = r"\b(January|February|March|April|May|June|July|August|September|October|November|December)\b"
+    #     month = re.findall(pattern, dom_text)[0]  # month name
+    #     month = datetime.datetime.strptime(month, '%B').month  # month number
+    #     pattern = r"20[0-4][0-9]|2050"
+    #     year = re.findall(pattern, dom_text)[0]
+
+    #     pattern = r'<a\s+id=(\d+)\s+val=(\d+)\s*/>'
+    #     dom_text = re.sub(
+    #         pattern, lambda m: f'<a id={m.group(1)} val={month}/{int(m.group(2)):d}/{year} />', dom_text)
+
+    #     dom = dom_text.split("\n")
+
+    #     return dom
 
     def parse_action(self, action: str) -> str:
         """Parse the action to a string from BrowserGym action space."""
