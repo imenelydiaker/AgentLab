@@ -239,7 +239,7 @@ Task:
 
     def get_action(self, obs):
         agent_info = AgentInfo()
-        goal = obs["goal"]
+        goal = obs["goal_object"]
         screenshot_base64 = image_to_jpg_base64_url(obs["screenshot"])
 
         if not self.initialized:
