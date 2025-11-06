@@ -94,7 +94,7 @@ class OnlineMind2WebEnv(AbstractEnv, BrowserEnv):
             **kwargs,
         )
 
-    def set_episode_info(self, episode_info: list):
+    def extract_episode_info(self, episode_info: list):
         """Set the episode_info reference from the experiment loop."""
         self.action_history = [info.action for info in episode_info]
         self.screenshots = [Image.fromarray(info.obs["screenshot"], "RGB") for info in episode_info]

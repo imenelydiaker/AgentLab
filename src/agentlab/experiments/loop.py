@@ -444,8 +444,8 @@ class ExpArgs:
                     step_info.truncated = True
                 
                 # For Judge model based tasks evaluation 
-                if hasattr(env, 'set_episode_info'):
-                    env.set_episode_info(episode_info)
+                if hasattr(env, 'extract_episode_info'):
+                    env.extract_episode_info(episode_info)
 
                 step_info.save_step_info(
                     self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som

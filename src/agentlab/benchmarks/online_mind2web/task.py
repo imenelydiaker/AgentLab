@@ -7,7 +7,7 @@ from browsergym.core.env import AbstractBrowserTask
 
 from agentlab.llm.chat_api import BaseModelArgs
 
-from .judge_eval import WebJudge_Online_Mind2Web_eval
+from .judge_eval import webjudge_online_mind2web_eval
 from .judge_utils import extract_prediction
 
 
@@ -26,16 +26,6 @@ class OnlineMind2WebTaskConfig:
     website: str
     reference_length: int
     level: str
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "OnlineMind2WebTaskConfig":
-        return cls(
-            task_id=data["task_id"],
-            confirmed_task=data["confirmed_task"],
-            website=data["website"],
-            reference_length=data["reference_length"],
-            level=data["level"],
-        )
     
 
 class OnlineMind2WebTask(AbstractBrowserTask):
@@ -63,15 +53,17 @@ class OnlineMind2WebTask(AbstractBrowserTask):
         self.timeout = 15 * 60  # 15 minutes
 
     def setup(self, page):
+        page.set_default_timeout(30000)  # applies to all waits and navigations
+
         # Navigate to the starting URL
         if self.task_config.website:
             start_url = self.task_config.website.strip()
-            page.goto(start_url, timeout=60000)  # 60 second timeout
+            page.goto(start_url, wait_until="load")  # Wait until the page is fully loaded
         
         return self.task_config.confirmed_task, {}
 
     def validate(self, page: playwright.sync_api.Page, chat_messages: list[str]):
-        judge_prompt_messages, user_msg, system_msg, record, key_points = WebJudge_Online_Mind2Web_eval(
+        judge_prompt_messages, user_msg, system_msg, record, key_points = webjudge_online_mind2web_eval(
             task_instruction=self.task_config.confirmed_task,
             last_actions=self.action_history,
             screenshots=self.screenshots,

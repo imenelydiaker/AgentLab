@@ -74,6 +74,14 @@ class AbstractEnv(gym.Env, ABC):
     def close(self):
         """Close any resources used by the environment"""
 
+    def extract_episode_info(self, episode_info: list):
+        """Extract episode_info from the execution loop. Can be used to share information with the task.
+
+        Args:
+            episode_info (list): episode information collected during the episode (list of StepInfo objects)
+        """
+        pass
+
 
 def add_step_timing_to_env_info_decorator(step_func):
     """Decorator/wrapper that adds timing information to any step function.

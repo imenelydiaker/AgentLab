@@ -48,7 +48,7 @@ class OnlineMind2WebBenchmark(AbstractBenchmark):
         with open(self.task_file, 'r') as f:
             tasks_dict = json.load(f)
 
-        tasks = [OnlineMind2WebTaskConfig.from_dict(item) for item in tasks_dict]
+        tasks = [OnlineMind2WebTaskConfig(**item) for item in tasks_dict]
 
         # Filter by level if specified
         for task_config in tasks:

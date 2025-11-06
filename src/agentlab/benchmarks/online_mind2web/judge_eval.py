@@ -87,7 +87,7 @@ The snapshot of the web page is shown in the image."""
 
     return model(messages)["content"]
 
-def WebJudge_Online_Mind2Web_eval(task_instruction, last_actions, screenshots, model, score_threshold):
+def webjudge_online_mind2web_eval(task_instruction, last_actions, screenshots, model, score_threshold):
     system_msg = """You are an expert in evaluating the performance of a web navigation agent. The agent is designed to help a human user navigate a website to complete a task. Given the user's task, the agent's action history, key points for task completion, some potentially important web pages in the agent's trajectory and their reasons, your goal is to determine whether the agent has completed the task and achieved all requirements.
 
 Your response must strictly follow the following evaluation criteria!
