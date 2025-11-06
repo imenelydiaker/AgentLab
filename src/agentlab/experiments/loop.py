@@ -442,6 +442,10 @@ class ExpArgs:
                 if action is None:
                     # will end the episode after saving the step info.
                     step_info.truncated = True
+                
+                # For Judge model based tasks evaluation 
+                if hasattr(env, 'set_episode_info'):
+                    env.set_episode_info(episode_info)
 
                 step_info.save_step_info(
                     self.exp_dir, save_screenshot=self.save_screenshot, save_som=self.save_som
