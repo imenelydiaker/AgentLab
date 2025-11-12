@@ -442,9 +442,9 @@ class ExpArgs:
                 if action is None:
                     # will end the episode after saving the step info.
                     step_info.truncated = True
-                
-                # For Judge model based tasks evaluation 
-                if hasattr(env, 'extract_episode_info'):
+
+                # For Judge model based tasks evaluation
+                if hasattr(env, "extract_episode_info"):
                     env.extract_episode_info(episode_info)
 
                 step_info.save_step_info(

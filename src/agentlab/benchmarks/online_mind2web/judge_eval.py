@@ -8,6 +8,7 @@ from .judge_utils import encode_image
 
 MAX_IMAGE = 50
 
+
 def identify_key_points(task_instruction, model):
     system_msg = """You are an expert tasked with analyzing a given task to identify the key points explicitly stated in the task description.
 
@@ -25,15 +26,14 @@ def identify_key_points(task_instruction, model):
     prompt = """Task: {task}"""
     text = prompt.format(task=task_instruction)
     messages = [
-            {"role": "system", "content": system_msg},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": text}
-                ],
-            }
-        ]
+        {"role": "system", "content": system_msg},
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": text}],
+        },
+    ]
     return model(messages)["content"]
+
 
 def judge_image(task_instruction, screenshot, key_points, model):
     system_msg = """You are an expert evaluator tasked with determining whether an image contains information about the necessary steps to complete a task.
@@ -69,25 +69,31 @@ Respond with:
 **Key Points for Task Completion**: {key_points}
 
 The snapshot of the web page is shown in the image."""
-    text = prompt.format(task=task_instruction,key_points=key_points)
+    text = prompt.format(task=task_instruction, key_points=key_points)
 
     messages = [
-            {"role": "system", "content": system_msg},
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": text},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{img_base64_str}", "detail": "high"},
+        {"role": "system", "content": system_msg},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": text},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{img_base64_str}",
+                        "detail": "high",
                     },
-                ],
-            }
-        ]
+                },
+            ],
+        },
+    ]
 
     return model(messages)["content"]
 
-def webjudge_online_mind2web_eval(task_instruction, last_actions, screenshots, model, score_threshold):
+
+def webjudge_online_mind2web_eval(
+    task_instruction, last_actions, screenshots, model, score_threshold
+):
     system_msg = """You are an expert in evaluating the performance of a web navigation agent. The agent is designed to help a human user navigate a website to complete a task. Given the user's task, the agent's action history, key points for task completion, some potentially important web pages in the agent's trajectory and their reasons, your goal is to determine whether the agent has completed the task and achieved all requirements.
 
 Your response must strictly follow the following evaluation criteria!
@@ -123,7 +129,6 @@ Action History:
 The potentially important snapshots of the webpage in the agent's trajectory and their reasons:
 {thoughts}"""
 
-
     key_points = identify_key_points(task_instruction, model)
     key_points = key_points.replace("\n\n", "\n")
 
@@ -133,8 +138,10 @@ The potentially important snapshots of the webpage in the agent's trajectory and
     except:
         key_points = key_points.split("Key Points:")[-1]
         key_points = "\n".join(line.lstrip() for line in key_points.splitlines())
-    
-    image_responses = [judge_image(task_instruction, screenshot, key_points, model) for screenshot in screenshots]
+
+    image_responses = [
+        judge_image(task_instruction, screenshot, key_points, model) for screenshot in screenshots
+    ]
 
     whole_content_img = []
     whole_thoughts = []
@@ -143,7 +150,13 @@ The potentially important snapshots of the webpage in the agent's trajectory and
     for response, screenshot in zip(image_responses, screenshots):
         try:
             score_text = response.split("Score")[1]
-            thought = response.split("**Reasoning**:")[-1].strip().lstrip("\n").split("\n\n")[0].replace('\n',' ')
+            thought = (
+                response.split("**Reasoning**:")[-1]
+                .strip()
+                .lstrip("\n")
+                .split("\n\n")[0]
+                .replace("\n", " ")
+            )
             score = re.findall(pattern, score_text)[0]
             record.append({"Response": response, "Score": int(score)})
         except Exception as e:
@@ -155,8 +168,11 @@ The potentially important snapshots of the webpage in the agent's trajectory and
             img_base64_str = encode_image(screenshot)
             whole_content_img.append(
                 {
-                    'type': 'image_url',
-                    'image_url': {"url": f"data:image/png;base64,{img_base64_str}", "detail": "high"}
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{img_base64_str}",
+                        "detail": "high",
+                    },
                 }
             )
             if thought != "":
@@ -171,15 +187,15 @@ Key Points: {key_points}
 
 Action History:
 {last_actions}"""
-    user_msg = prompt.format(task=task_instruction, last_actions="\n".join(f"{i+1}. {action}" for i, action in enumerate(last_actions)), key_points=key_points, thoughts = "\n".join(f"{i+1}. {thought}" for i, thought in enumerate(whole_thoughts)))
+    user_msg = prompt.format(
+        task=task_instruction,
+        last_actions="\n".join(f"{i+1}. {action}" for i, action in enumerate(last_actions)),
+        key_points=key_points,
+        thoughts="\n".join(f"{i+1}. {thought}" for i, thought in enumerate(whole_thoughts)),
+    )
 
     messages = [
         {"role": "system", "content": system_msg},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": user_msg}]
-                + whole_content_img
-        }
+        {"role": "user", "content": [{"type": "text", "text": user_msg}] + whole_content_img},
     ]
     return messages, user_msg, system_msg, record, key_points
