@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,6 +9,8 @@ from agentlab.llm.chat_api import BaseModelArgs
 
 from .judge_eval import webjudge_online_mind2web_eval
 from .judge_utils import extract_prediction
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -70,6 +73,9 @@ class OnlineMind2WebTask(AbstractBrowserTask):
         reward = 0
 
         if self.validate_at_each_step or last_action_is_stop:
+            logger.info(
+                "Validating task completion with judge model. Task ID: %s", self.task_config.task_id
+            )
             judge_prompt_messages, user_msg, system_msg, record, key_points = (
                 webjudge_online_mind2web_eval(
                     task_instruction=self.task_config.confirmed_task,
@@ -81,9 +87,11 @@ class OnlineMind2WebTask(AbstractBrowserTask):
             )
 
             response = self.judge_model(judge_prompt_messages)["content"]
+            logger.info(f"Judge response: {response}")
 
             reward = extract_prediction(response, mode="WebJudge_Online_Mind2Web_eval")
 
+        logger.info(f"Reward: {reward}, Last action is stop: {last_action_is_stop}")
         done = reward > 0 or last_action_is_stop
         user_message, info = "", {}
         return reward, done, user_message, info
