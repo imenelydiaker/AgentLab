@@ -74,7 +74,7 @@ class AbstractEnv(gym.Env, ABC):
     def close(self):
         """Close any resources used by the environment"""
 
-    def extract_episode_info(self, episode_info: list):
+    def collect_episode_info(self, episode_info: list):
         """Extract episode_info from the execution loop. Can be used to share information with the task.
 
         Args:

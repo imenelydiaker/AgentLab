@@ -22,7 +22,7 @@ class TestOnlineMind2WebEnv:
             StepInfo(action="type", obs={"screenshot": np.zeros((100, 100, 3), dtype=np.uint8)}),
         ]
 
-        env.extract_episode_info(mock_response)
+        env.collect_episode_info(mock_response)
         assert env.action_history == ["click", "type"]
         assert all(isinstance(img, Image.Image) for img in env.screenshots)
         assert len(env.screenshots) == 2

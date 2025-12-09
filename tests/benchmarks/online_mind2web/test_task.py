@@ -238,12 +238,11 @@ class TestOnlineMind2WebTask:
         # Call setup
         goal, info = task.setup(mock_page)
 
-        # Verify that set_default_timeout was called with 30000ms
-        mock_page.set_default_timeout.assert_called_once_with(30000)
+        # Verify that set_default_timeout was called with 60000ms
+        mock_page.set_default_timeout.assert_called_once_with(60000)
 
         # Verify that goto was called with the website URL
-        mock_page.goto.assert_called_once_with("https://www.openai.com", wait_until="load")
-
+        mock_page.goto.assert_called_once_with("https://www.openai.com", timeout=60000)
         # Verify that the returned goal is the confirmed_task
         assert goal == "Find the official website of OpenAI."
 
@@ -277,7 +276,7 @@ class TestOnlineMind2WebTask:
         goal, info = task.setup(mock_page)
 
         # Verify that set_default_timeout was called
-        mock_page.set_default_timeout.assert_called_once_with(30000)
+        mock_page.set_default_timeout.assert_called_once_with(60000)
 
         # Verify that goto was NOT called since website is empty
         mock_page.goto.assert_not_called()
@@ -301,9 +300,41 @@ class TestOnlineMind2WebTask:
             (
                 [
                     {"role": "user", "content": "Please do the task."},
+                    {"role": "assistant", "content": 'send_msg_to_user(text="I am done")'},
+                ],
+                True,
+            ),
+            (
+                [
+                    {"role": "user", "content": "Please do the task."},
                     {"role": "assistant", "content": "!d"},
                 ],
                 False,
+            ),
+            (
+                [
+                    {"role": "user", "content": "Please do the task."},
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "send_msg_to_user",
+                                    "arguments": '{"text": "I am done"}',
+                                }
+                            }
+                        ],
+                    },
+                ],
+                True,
+            ),
+            (
+                [
+                    {"role": "user", "content": "Please do the task."},
+                    {"role": "info", "content": "action:\nsend_msg_to_user(text='I am done')"},
+                ],
+                True,
             ),
         ],
     )
@@ -327,4 +358,4 @@ class TestOnlineMind2WebTask:
             seed=42, task_config=task_config, judge_model_args=MagicMock(), judge_score_threshold=3
         )
 
-        assert task.last_actions_is_stop(chat_messages) is expected
+        assert task.agent_is_done(chat_messages) is expected

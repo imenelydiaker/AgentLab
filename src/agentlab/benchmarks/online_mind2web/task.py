@@ -36,7 +36,7 @@ class OnlineMind2WebTask(AbstractBrowserTask):
             task: str, the task instruction.
 
         """
-        super().__init__(seed=0)
+        super().__init__(seed)
         self.task_config = task_config
         self.judge_score_threshold = judge_score_threshold  # Threshold for considering a screenshot relevant to judge the task completion. Scores are between 1 and 5.
         self.validate_at_each_step = validate_at_each_step
@@ -49,30 +49,25 @@ class OnlineMind2WebTask(AbstractBrowserTask):
         self.timeout = 15 * 60  # 15 minutes
 
     def setup(self, page):
-        page.set_default_timeout(30000)  # applies to all waits and navigations
+        page.set_default_timeout(60000)  # applies to all waits and navigations
 
         # Navigate to the starting URL
         if self.task_config.website:
             start_url = self.task_config.website.strip()
-            page.goto(start_url, wait_until="load")  # Wait until the page is fully loaded
+            page.goto(start_url, timeout=60000)  # Wait up to 60 seconds for the page to load
 
         return self.task_config.confirmed_task, {}
 
-    def last_actions_is_stop(self, chat_messages):
-        return (
-            chat_messages
-            and chat_messages[-1]["role"] == "assistant"
-            and "send_msg_to_user" in chat_messages[-1]["content"].strip().lower()
-            if "content" in chat_messages[-1]
-            else False
-        )
-
+    def agent_is_done(self):
+        # Check if the last action is sending a message to the user
+        return "send_msg_to_user" in self.action_history[-1]
+        
     def validate(self, page: playwright.sync_api.Page, chat_messages: list[str]):
         # Stop task when the agent sends a message to the user
-        last_action_is_stop = self.last_actions_is_stop(chat_messages)
+        done = self.agent_is_done()
         reward = 0
 
-        if self.validate_at_each_step or last_action_is_stop:
+        if self.validate_at_each_step or done:
             logger.info(
                 "Validating task completion with judge model. Task ID: %s", self.task_config.task_id
             )
@@ -91,8 +86,7 @@ class OnlineMind2WebTask(AbstractBrowserTask):
 
             reward = extract_prediction(response, mode="WebJudge_Online_Mind2Web_eval")
 
-        logger.info(f"Reward: {reward}, Last action is stop: {last_action_is_stop}")
-        done = reward > 0 or last_action_is_stop
+        logger.info(f"Reward: {reward}. Agent is done: {done}")
         user_message, info = "", {}
         return reward, done, user_message, info
 

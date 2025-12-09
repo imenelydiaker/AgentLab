@@ -1,5 +1,4 @@
-import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from browsergym.core.action.base import execute_python_code
 from browsergym.core.env import BrowserEnv
@@ -9,21 +8,9 @@ from agentlab.benchmarks.abstract_env import (
     AbstractEnv,
     AbstractEnvArgs,
 )
-from agentlab.llm.chat_api import BaseModelArgs, OpenAIModelArgs
+from agentlab.llm.chat_api import BaseModelArgs
 
 from .task import OnlineMind2WebTask, OnlineMind2WebTaskConfig
-
-
-# Default judge model arguments factory
-# Authors recommend to use "o4-mini" for judging OnlineMind2Web tasks
-def _default_judge_model_args() -> OpenAIModelArgs:
-    return OpenAIModelArgs(
-        model_name="o4-mini",
-        max_total_tokens=128_000,
-        max_input_tokens=128_000,
-        max_new_tokens=10_000,
-        vision_support=True,
-    )
 
 
 @dataclass
@@ -34,9 +21,7 @@ class OnlineMind2WebEnvArgs(AbstractEnvArgs):
     max_steps: int = 30
     validate_at_each_step: bool = False
     task_seed: int = 0
-    judge_model_args: BaseModelArgs = field(
-        default_factory=_default_judge_model_args
-    )  # Default judge model is set to o4-mini
+    judge_model_args: BaseModelArgs = None
     judge_score_threshold: int = 3
 
     def make_env(self, action_mapping, exp_dir, **exp_task_kwargs) -> "OnlineMind2WebEnv":
@@ -82,11 +67,6 @@ class OnlineMind2WebEnv(AbstractEnv, BrowserEnv):
         self.max_steps = max_steps
         self.validate_at_each_step = validate_at_each_step
 
-        # Store reference to episode_info list from the experiment loop
-        # This will be updated by the loop as the episode progresses
-        self.action_history = []
-        self.screenshots = []
-
         # Prepare task_kwargs for BrowserEnv
         # BrowserEnv will call OnlineMind2WebTask(seed=seed, **task_kwargs)
         task_kwargs = {
@@ -104,18 +84,23 @@ class OnlineMind2WebEnv(AbstractEnv, BrowserEnv):
             **kwargs,
         )
 
-    def extract_episode_info(self, episode_info: list):
+    def collect_episode_info(self, episode_info: list):
         """This method is called by the experiment loop to provide
         the environment with the current episode information (episode_info).
         """
-        self.action_history = [info.action for info in episode_info]
-        self.screenshots = [Image.fromarray(info.obs["screenshot"], "RGB") for info in episode_info]
+        self.task.action_history = [info.action for info in episode_info]
+        self.task.screenshots = [Image.fromarray(info.obs["screenshot"], "RGB") for info in episode_info]
 
     def reset(self, seed: int = None):
+        self._step_count = 0
         return BrowserEnv.reset(self, seed=seed)
 
     def step(self, action):
-        return BrowserEnv.step(self, action)
+        self._step_count += 1
+        obs, reward, terminated, truncated, info = BrowserEnv.step(self, action)
+        if self._step_count >= self.max_steps:
+            truncated = True
+        return obs, reward, terminated, truncated, info
 
     def close(self):
         return BrowserEnv.close(self)
